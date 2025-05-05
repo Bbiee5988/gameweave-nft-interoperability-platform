@@ -208,15 +208,14 @@
   (begin
     (asserts! (game-exists game-id) ERR-GAME-NOT-FOUND)
     (asserts! (is-game-owner game-id) ERR-NOT-AUTHORIZED)
-    
-    (match (map-get? games { game-id: game-id })
-      game-data 
-        (map-set games
-          { game-id: game-id }
-          (merge game-data { owner: new-owner })
-        )
-      (err ERR-GAME-NOT-FOUND)
-    )
+
+    ;; Get game data (asserts guarantee it exists, use unwrap-panic)
+    (let ((game-data (unwrap-panic (map-get? games { game-id: game-id }))))
+      ;; Update map (map-set returns true, but we ignore it here)
+      (map-set games { game-id: game-id } (merge game-data { owner: new-owner }))
+    ) ;; End of let scope
+
+    ;; Return success for the public function
     (ok true)
   )
 )
@@ -395,31 +394,32 @@
   (begin
     ;; Ensure caller is authorized (owner of source game)
     (asserts! (is-game-owner source-game-id) ERR-NOT-AUTHORIZED)
-    
-    ;; Verify mapping exists
+
+    ;; Verify mapping exists (unwrap-panic relies on this)
     (asserts! (is-some (map-get? asset-mappings {
       source-game-id: source-game-id,
       source-collection: source-collection,
       target-game-id: target-game-id
     })) ERR-MAPPING-NOT-FOUND)
-    
-    ;; Delete the mapping by setting active to false
-    (match (map-get? asset-mappings {
+
+    ;; Get the mapping data (safe due to assert!)
+    (let ((mapping-data (unwrap-panic (map-get? asset-mappings {
       source-game-id: source-game-id,
       source-collection: source-collection,
       target-game-id: target-game-id
-    })
-      mapping
-        (map-set asset-mappings
-          {
-            source-game-id: source-game-id,
-            source-collection: source-collection,
-            target-game-id: target-game-id
-          }
-          (merge mapping { active: false })
-        )
-      (err ERR-MAPPING-NOT-FOUND)
-    )
+    }))))
+      ;; Update the mapping to inactive
+      (map-set asset-mappings
+        {
+          source-game-id: source-game-id,
+          source-collection: source-collection,
+          target-game-id: target-game-id
+        }
+        (merge mapping-data { active: false })
+      )
+    ) ;; end let
+
+    ;; Return success
     (ok true)
   )
 )
